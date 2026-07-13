@@ -6,10 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, Response
 
 APP_START_TIME = time.time()
 BOOT_ID = os.urandom(4).hex()
@@ -83,10 +82,31 @@ def health():
     return {"status": "healthy"}
 
 
-# Serve the frontend. /static holds assets, / serves the dashboard itself.
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+@app.get("/api/speedtest/download")
+def speedtest_download(bytes: int = 2_000_000):
+    """Returns random, incompressible bytes so the browser can time a real
+    download and derive throughput. Capped to keep this cheap on shared hosts."""
+    size = max(50_000, min(bytes, 8_000_000))
+    payload = os.urandom(size)
+    return Response(
+        content=payload,
+        media_type="application/octet-stream",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
+@app.post("/api/speedtest/upload")
+async def speedtest_upload(request: Request):
+    """Reads whatever the client sends and reports how many bytes arrived,
+    so upload throughput can be timed client-side."""
+    body = await request.body()
+    return {"received_bytes": len(body)}
+
+
+# The dashboard is a single self-contained HTML file (inline CSS/JS) on
+# purpose: hosting platforms that reverse-proxy this app under a subpath
+# (e.g. host:8080/go/test) would 404 on absolute asset paths like
+# /static/style.css. Zero extra asset requests = nothing to break.
 @app.get("/")
 def index():
     return FileResponse(str(STATIC_DIR / "index.html"))

@@ -7,7 +7,195 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📡</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css">
+<script>
+  // Fix relative-URL resolution BEFORE anything else runs. Some hosting
+  // platforms reverse-proxy this app under a subpath (e.g. /go/test)
+  // without a trailing slash. Without the trailing slash, every relative
+  // fetch ("api/ping") resolves one directory too high and 404s. This page
+  // has zero external asset links (everything below is inline) specifically
+  // so this is the only path-resolution issue that can ever bite it.
+  if (!window.location.pathname.endsWith('/')) {
+    history.replaceState(null, '', window.location.pathname + '/' + window.location.search + window.location.hash);
+  }
+</script>
+<style>
+:root {
+  --ink: #0a0f1a;
+  --panel: #111a2b;
+  --panel-border: #1f2c45;
+  --amber: #f2a65a;
+  --cyan: #5bc8d9;
+  --green: #6fcf97;
+  --red: #eb5757;
+  --text: #e8edf4;
+  --muted: #7c8ba5;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --display: 'Space Grotesk', ui-sans-serif, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--ink); color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+}
+body {
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(91, 200, 217, 0.08), transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(242, 166, 90, 0.08), transparent 45%);
+}
+.scanlines {
+  position: fixed; inset: 0; pointer-events: none; z-index: 50;
+  background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+  mix-blend-mode: overlay;
+}
+::selection { background: var(--amber); color: var(--ink); }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 28px; border-bottom: 1px solid var(--panel-border);
+  position: sticky; top: 0;
+  background: rgba(10, 15, 26, 0.9); backdrop-filter: blur(6px); z-index: 10;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px var(--green);
+  display: inline-block; animation: pulse-dot 2s infinite;
+}
+.brand-dot.bad { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.brand-dot.warn { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.brand-text { font-family: var(--display); font-weight: 700; letter-spacing: 0.06em; font-size: 18px; }
+.brand-sub { color: var(--muted); font-size: 12px; letter-spacing: 0.05em; }
+.topbar-right { display: flex; gap: 10px; align-items: baseline; color: var(--muted); font-size: 13px; }
+.clock { color: var(--amber); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+.grid {
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px;
+  padding: 20px 28px 40px; max-width: 1280px; margin: 0 auto;
+}
+.panel {
+  background: linear-gradient(180deg, var(--panel), #0d1524);
+  border: 1px solid var(--panel-border); border-radius: 10px; padding: 18px 20px;
+  opacity: 0; transform: translateY(10px);
+  animation: rise 0.5s ease forwards;
+}
+.panel:nth-of-type(1) { animation-delay: 0.02s; }
+.panel:nth-of-type(2) { animation-delay: 0.08s; }
+.panel:nth-of-type(3) { animation-delay: 0.14s; }
+.panel:nth-of-type(4) { animation-delay: 0.20s; }
+.panel:nth-of-type(5) { animation-delay: 0.26s; }
+.panel:nth-of-type(6) { animation-delay: 0.32s; }
+@keyframes rise { to { opacity: 1; transform: translateY(0); } }
+.panel:hover { border-color: #2a3c5c; transition: border-color 0.3s ease; }
+
+.panel-scope { grid-column: span 7; }
+.panel-speed { grid-column: span 5; }
+.panel-load { grid-column: span 5; }
+.panel-info { grid-column: span 7; }
+.panel-counter { grid-column: span 5; }
+.panel-about { grid-column: span 7; }
+@media (max-width: 900px) {
+  .panel-scope, .panel-speed, .panel-load, .panel-info, .panel-counter, .panel-about { grid-column: span 12; }
+}
+
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.panel-head h2 {
+  font-family: var(--display); font-size: 14px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--text); margin: 0;
+}
+.badge {
+  font-size: 11px; padding: 4px 10px; border-radius: 999px;
+  background: rgba(111, 207, 151, 0.12); color: var(--green);
+  border: 1px solid rgba(111, 207, 151, 0.3); letter-spacing: 0.04em;
+  transition: all 0.3s ease;
+}
+.badge.warn { background: rgba(242, 166, 90, 0.12); color: var(--amber); border-color: rgba(242, 166, 90, 0.3); }
+.badge.bad { background: rgba(235, 87, 87, 0.12); color: var(--red); border-color: rgba(235, 87, 87, 0.3); }
+.badge-quiet { background: transparent; color: var(--muted); border: 1px solid var(--panel-border); }
+
+.scope-row { display: flex; gap: 20px; align-items: stretch; }
+.scope { flex: 1 1 auto; width: 100%; height: 200px; background: #060a12; border: 1px solid var(--panel-border); border-radius: 8px; }
+.signal-stack {
+  flex: 0 0 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  border: 1px solid var(--panel-border); border-radius: 8px; background: #0c1322; padding: 14px;
+}
+.signal-bars { display: flex; align-items: flex-end; gap: 4px; height: 44px; }
+.signal-bars .bar { width: 9px; border-radius: 2px; background: #22304a; transition: background 0.25s ease, box-shadow 0.25s ease; }
+.signal-bars .b1 { height: 30%; } .signal-bars .b2 { height: 48%; } .signal-bars .b3 { height: 64%; }
+.signal-bars .b4 { height: 82%; } .signal-bars .b5 { height: 100%; }
+.signal-bars .bar.lit { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.signal-bars .bar.lit.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.signal-bars .bar.lit.bad { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.metric-big { font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; }
+.metric-big small { font-size: 13px; color: var(--muted); font-weight: 500; }
+.metric-label { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+.stat { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--panel-border); padding-top: 8px; }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 18px; color: var(--cyan); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.speed-body { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.gauge-wrap { position: relative; width: 220px; height: 130px; }
+.gauge-wrap svg { width: 100%; height: 100%; }
+.gauge-track { fill: none; stroke: #1a2740; stroke-width: 14; stroke-linecap: round; }
+.gauge-fill { fill: none; stroke: url(#gaugeGrad); stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 0.9s cubic-bezier(.2,.8,.2,1); }
+.gauge-readout { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; }
+.gauge-value { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.gauge-unit { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+.speed-meta { display: flex; gap: 22px; margin-top: 6px; }
+.speed-meta .item { text-align: center; }
+.speed-meta .k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.speed-meta .v { font-size: 15px; color: var(--cyan); font-weight: 600; font-variant-numeric: tabular-nums; }
+.speed-btn {
+  margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+  color: var(--ink); background: var(--amber); border: none; border-radius: 6px;
+  padding: 9px 18px; cursor: pointer; letter-spacing: 0.03em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.speed-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(242, 166, 90, 0.35); }
+.speed-btn:active { transform: translateY(0); }
+.speed-btn:disabled { opacity: 0.5; cursor: progress; transform: none; box-shadow: none; }
+
+.load-bars { display: flex; flex-direction: column; gap: 10px; }
+.load-item { display: flex; align-items: center; gap: 10px; }
+.load-item .lbl { flex: 0 0 110px; font-size: 12px; color: var(--muted); }
+.load-item .track { flex: 1; height: 8px; background: #0c1322; border-radius: 4px; overflow: hidden; border: 1px solid var(--panel-border); }
+.load-item .fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--amber)); width: 0%; transition: width 0.6s ease; }
+.load-item .val { flex: 0 0 64px; text-align: right; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 14px 0 0; }
+.hint code { color: var(--cyan); }
+
+.kv { margin: 0; }
+.kv-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--panel-border); font-size: 13px; }
+.kv-row:first-child { border-top: none; }
+.kv-row dt { color: var(--muted); margin: 0; }
+.kv-row dd { margin: 0; color: var(--text); font-weight: 500; text-align: right; word-break: break-word; }
+
+.counter {
+  font-family: var(--display); font-size: 56px; font-weight: 700; color: var(--amber);
+  text-align: center; padding: 10px 0 4px; font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px rgba(242, 166, 90, 0.25);
+}
+
+.panel-about p { color: var(--muted); font-size: 13.5px; line-height: 1.7; margin: 0 0 12px; }
+.panel-about code { color: var(--cyan); }
+.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.checklist li { font-size: 13px; color: var(--text); display: flex; gap: 8px; align-items: baseline; }
+.checklist .ok { color: var(--green); font-weight: 700; }
+
+.footer { text-align: center; color: var(--muted); font-size: 11.5px; padding: 20px; letter-spacing: 0.03em; }
+.footer .dot { margin: 0 8px; opacity: 0.5; }
+
+@media (max-width: 640px) {
+  .scope-row { flex-direction: column; }
+  .signal-stack { flex-direction: row; justify-content: space-around; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+  .counter { font-size: 42px; }
+}
+</style>
 </head>
 <body>
 
@@ -27,50 +215,59 @@
 
 <main class="grid">
 
-  <!-- Signature panel: oscilloscope trace + signal bars -->
   <section class="panel panel-scope">
     <div class="panel-head">
       <h2>Connection Signal</h2>
       <span class="badge" id="connState">CONNECTING</span>
     </div>
-
     <div class="scope-row">
-      <canvas id="scopeCanvas" class="scope" width="900" height="220"></canvas>
-
+      <canvas id="scopeCanvas" class="scope"></canvas>
       <div class="signal-stack">
         <div class="signal-bars" id="signalBars" title="Signal strength based on round-trip latency">
-          <span class="bar b1"></span>
-          <span class="bar b2"></span>
-          <span class="bar b3"></span>
-          <span class="bar b4"></span>
-          <span class="bar b5"></span>
+          <span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="bar b4"></span><span class="bar b5"></span>
         </div>
         <div class="metric-big" id="latencyNow">-- <small>ms</small></div>
         <div class="metric-label">round-trip now</div>
       </div>
     </div>
-
     <div class="stat-row">
-      <div class="stat">
-        <span class="stat-label">avg rtt</span>
-        <span class="stat-value" id="latencyAvg">--</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">jitter</span>
-        <span class="stat-value" id="jitter">--</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">pings sent</span>
-        <span class="stat-value" id="pingCount">0</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">dropped</span>
-        <span class="stat-value" id="dropCount">0</span>
-      </div>
+      <div class="stat"><span class="stat-label">avg rtt</span><span class="stat-value" id="latencyAvg">--</span></div>
+      <div class="stat"><span class="stat-label">jitter</span><span class="stat-value" id="jitter">--</span></div>
+      <div class="stat"><span class="stat-label">pings sent</span><span class="stat-value" id="pingCount">0</span></div>
+      <div class="stat"><span class="stat-label">dropped</span><span class="stat-value" id="dropCount">0</span></div>
     </div>
   </section>
 
-  <!-- Page load performance -->
+  <section class="panel panel-speed">
+    <div class="panel-head">
+      <h2>Network Speed</h2>
+      <span class="badge badge-quiet" id="speedState">idle</span>
+    </div>
+    <div class="speed-body">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 220 130">
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#5bc8d9"/>
+              <stop offset="100%" stop-color="#f2a65a"/>
+            </linearGradient>
+          </defs>
+          <path class="gauge-track" d="M 20 110 A 90 90 0 0 1 200 110"/>
+          <path class="gauge-fill" id="gaugeFill" d="M 20 110 A 90 90 0 0 1 200 110"/>
+        </svg>
+        <div class="gauge-readout">
+          <div class="gauge-value" id="gaugeValue">--</div>
+          <div class="gauge-unit">Mbps down</div>
+        </div>
+      </div>
+      <div class="speed-meta">
+        <div class="item"><div class="k">Upload</div><div class="v" id="uploadVal">--</div></div>
+        <div class="item"><div class="k">Sample</div><div class="v" id="sampleVal">--</div></div>
+      </div>
+      <button class="speed-btn" id="speedBtn">Run Speed Test</button>
+    </div>
+  </section>
+
   <section class="panel panel-load">
     <div class="panel-head">
       <h2>This Page's Load</h2>
@@ -80,7 +277,6 @@
     <p class="hint">Measured with the browser's own Navigation &amp; Resource Timing APIs — the same numbers real visitors experience.</p>
   </section>
 
-  <!-- Deployment fingerprint -->
   <section class="panel panel-info">
     <div class="panel-head">
       <h2>Deployment Fingerprint</h2>
@@ -96,17 +292,15 @@
     </dl>
   </section>
 
-  <!-- Visitor / request counter -->
   <section class="panel panel-counter">
     <div class="panel-head">
       <h2>Requests Served</h2>
       <span class="badge badge-quiet">since container boot</span>
     </div>
     <div class="counter" id="reqCounter">0</div>
-    <p class="hint">Increments on every <code>/api/stats</code> call. Reload the page or open it on another device to watch it climb.</p>
+    <p class="hint">Increments on every <code>api/stats</code> call. Reload the page or open it on another device to watch it climb.</p>
   </section>
 
-  <!-- About / how to use -->
   <section class="panel panel-about">
     <div class="panel-head">
       <h2>What This Is</h2>
@@ -119,23 +313,274 @@
     </p>
     <ul class="checklist">
       <li><span class="ok">✓</span> container builds &amp; boots from <code>docker-compose.yml</code></li>
-      <li><span class="ok">✓</span> static assets served correctly</li>
+      <li><span class="ok">✓</span> works correctly even when reverse-proxied under a subpath</li>
       <li><span class="ok">✓</span> API round-trips respond (see signal panel above)</li>
+      <li><span class="ok">✓</span> real throughput measured, not just latency</li>
       <li><span class="ok">✓</span> environment variables reach the container</li>
-      <li><span class="ok">✓</span> service survives a page reload / restart</li>
     </ul>
   </section>
 
 </main>
 
 <footer class="footer">
-  <span>deploy-probe v1.0</span>
+  <span>deploy-probe v1.1</span>
   <span class="dot">·</span>
   <span id="footClock">--</span>
   <span class="dot">·</span>
   <span>built for testing self-hosted deployments</span>
 </footer>
 
-<script src="/static/script.js"></script>
+<script>
+/* ---------- Clock ---------- */
+function tickClock() {
+  const now = new Date();
+  const p = n => String(n).padStart(2, '0');
+  document.getElementById('clock').textContent = `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+  document.getElementById('footClock').textContent = now.toLocaleDateString();
+  document.getElementById('tz').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ---------- Oscilloscope + signal meter ---------- */
+const canvas = document.getElementById('scopeCanvas');
+const ctx = canvas.getContext('2d');
+const HISTORY_LEN = 60;
+let history = [];
+let pingsSent = 0, dropped = 0;
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+}
+window.addEventListener('resize', resizeCanvas);
+
+function classifyLatency(ms) {
+  if (ms == null) return 'bad';
+  if (ms < 80) return 'good';
+  if (ms < 200) return 'warn';
+  return 'bad';
+}
+
+function drawScope() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = 'rgba(31, 44, 69, 0.6)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 12; i++) { const x = (w/12)*i; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+  for (let i = 1; i < 4; i++) { const y = (h/4)*i; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  if (history.length < 2) return;
+
+  const maxVal = Math.max(250, ...history.filter(v => v != null));
+  const stepX = w / (HISTORY_LEN - 1);
+  const offset = HISTORY_LEN - history.length;
+
+  ctx.beginPath();
+  ctx.lineWidth = 2.2 * devicePixelRatio;
+  ctx.strokeStyle = '#f2a65a';
+  ctx.shadowColor = '#f2a65a';
+  ctx.shadowBlur = 8;
+  ctx.lineJoin = 'round';
+  let started = false;
+  history.forEach((val, i) => {
+    const x = (offset + i) * stepX;
+    if (val == null) { started = false; return; }
+    const y = h - (val / maxVal) * (h * 0.85) - h * 0.05;
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  history.forEach((val, i) => {
+    if (val != null) return;
+    const x = (offset + i) * stepX;
+    ctx.beginPath(); ctx.fillStyle = '#eb5757'; ctx.arc(x, h - 10, 3 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function updateSignalBars(ms) {
+  const bars = document.querySelectorAll('.signal-bars .bar');
+  let lit = ms == null ? 0 : ms < 40 ? 5 : ms < 80 ? 4 : ms < 150 ? 3 : ms < 300 ? 2 : 1;
+  const cls = classifyLatency(ms);
+  bars.forEach((bar, idx) => {
+    bar.classList.remove('lit', 'warn', 'bad');
+    if (idx < lit) { bar.classList.add('lit'); if (cls === 'warn') bar.classList.add('warn'); if (cls === 'bad') bar.classList.add('bad'); }
+  });
+}
+
+function updateConnBadge(ms, isDrop) {
+  const badge = document.getElementById('connState');
+  const dot = document.getElementById('statusDot');
+  badge.classList.remove('warn', 'bad'); dot.classList.remove('warn', 'bad');
+  if (isDrop) { badge.textContent = 'UNSTABLE'; badge.classList.add('bad'); dot.classList.add('bad'); return; }
+  const cls = classifyLatency(ms);
+  if (cls === 'good') { badge.textContent = 'STABLE'; }
+  else if (cls === 'warn') { badge.textContent = 'SLOW'; badge.classList.add('warn'); dot.classList.add('warn'); }
+  else { badge.textContent = 'DEGRADED'; badge.classList.add('bad'); dot.classList.add('bad'); }
+}
+
+async function pingOnce() {
+  pingsSent++;
+  document.getElementById('pingCount').textContent = pingsSent;
+  const start = performance.now();
+  let ms = null;
+  try {
+    const res = await fetch('api/ping', { cache: 'no-store' });
+    if (!res.ok) throw new Error('bad status');
+    await res.json();
+    ms = performance.now() - start;
+  } catch (e) {
+    ms = null; dropped++;
+    document.getElementById('dropCount').textContent = dropped;
+  }
+  history.push(ms);
+  if (history.length > HISTORY_LEN) history.shift();
+
+  const samples = history.filter(v => v != null);
+  if (samples.length) {
+    const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+    const variance = samples.reduce((a, b) => a + (b - avg) ** 2, 0) / samples.length;
+    document.getElementById('latencyAvg').textContent = avg.toFixed(0) + ' ms';
+    document.getElementById('jitter').textContent = '±' + Math.sqrt(variance).toFixed(0) + ' ms';
+  }
+  document.getElementById('latencyNow').innerHTML = ms == null ? 'timeout' : ms.toFixed(0) + ' <small>ms</small>';
+  updateSignalBars(ms);
+  updateConnBadge(ms, ms == null);
+  drawScope();
+}
+resizeCanvas();
+pingOnce();
+setInterval(pingOnce, 2000);
+
+/* ---------- Real network speed test ---------- */
+const gaugeFill = document.getElementById('gaugeFill');
+const GAUGE_LEN = gaugeFill.getTotalLength();
+gaugeFill.style.strokeDasharray = GAUGE_LEN;
+gaugeFill.style.strokeDashoffset = GAUGE_LEN;
+const GAUGE_MAX_MBPS = 150; // gauge scale ceiling
+
+function setGauge(mbps) {
+  const pct = Math.max(0, Math.min(1, mbps / GAUGE_MAX_MBPS));
+  gaugeFill.style.strokeDashoffset = GAUGE_LEN * (1 - pct);
+  document.getElementById('gaugeValue').textContent = mbps.toFixed(1);
+}
+
+async function runSpeedTest() {
+  const btn = document.getElementById('speedBtn');
+  const state = document.getElementById('speedState');
+  btn.disabled = true;
+  state.textContent = 'testing'; state.classList.add('warn');
+
+  const size = 3_000_000;
+  try {
+    const t0 = performance.now();
+    const res = await fetch(`api/speedtest/download?bytes=${size}`, { cache: 'no-store' });
+    const buf = await res.arrayBuffer();
+    const seconds = (performance.now() - t0) / 1000;
+    const mbps = (buf.byteLength * 8 / 1_000_000) / seconds;
+    setGauge(mbps);
+    document.getElementById('sampleVal').textContent = (buf.byteLength / 1_000_000).toFixed(1) + ' MB';
+  } catch (e) {
+    setGauge(0);
+    document.getElementById('sampleVal').textContent = 'failed';
+  }
+
+  try {
+    const upBytes = new Uint8Array(1_000_000);
+    crypto.getRandomValues(upBytes);
+    const t1 = performance.now();
+    await fetch('api/speedtest/upload', { method: 'POST', body: upBytes, cache: 'no-store' });
+    const seconds = (performance.now() - t1) / 1000;
+    const upMbps = (upBytes.byteLength * 8 / 1_000_000) / seconds;
+    document.getElementById('uploadVal').textContent = upMbps.toFixed(1) + ' Mbps';
+  } catch (e) {
+    document.getElementById('uploadVal').textContent = 'failed';
+  }
+
+  state.textContent = 'done'; state.classList.remove('warn');
+  btn.disabled = false;
+}
+document.getElementById('speedBtn').addEventListener('click', runSpeedTest);
+setTimeout(runSpeedTest, 600);
+
+/* ---------- Page load timing ---------- */
+function renderLoadBars() {
+  const container = document.getElementById('loadBars');
+  let entries;
+  try {
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav) {
+      entries = [
+        ['DNS lookup', nav.domainLookupEnd - nav.domainLookupStart],
+        ['TCP connect', nav.connectEnd - nav.connectStart],
+        ['Time to first byte', nav.responseStart - nav.requestStart],
+        ['Response download', nav.responseEnd - nav.responseStart],
+        ['DOM processing', nav.domComplete - nav.responseEnd],
+        ['Total load', nav.loadEventEnd - nav.startTime || nav.duration],
+      ];
+    }
+  } catch (e) { entries = null; }
+  if (!entries) {
+    const t = performance.timing;
+    entries = [
+      ['DNS lookup', t.domainLookupEnd - t.domainLookupStart],
+      ['TCP connect', t.connectEnd - t.connectStart],
+      ['Time to first byte', t.responseStart - t.requestStart],
+      ['Response download', t.responseEnd - t.responseStart],
+      ['DOM processing', t.domComplete - t.responseEnd],
+      ['Total load', t.loadEventEnd - t.navigationStart],
+    ];
+  }
+  const maxMs = Math.max(50, ...entries.map(e => Math.max(0, e[1])));
+  container.innerHTML = '';
+  entries.forEach(([label, ms]) => {
+    const val = Math.max(0, Math.round(ms || 0));
+    const pct = Math.min(100, (val / maxMs) * 100);
+    const row = document.createElement('div');
+    row.className = 'load-item';
+    row.innerHTML = `<span class="lbl">${label}</span><span class="track"><span class="fill" style="width:${pct}%"></span></span><span class="val">${val} ms</span>`;
+    container.appendChild(row);
+  });
+}
+window.addEventListener('load', () => setTimeout(renderLoadBars, 150));
+
+/* ---------- Deployment info ---------- */
+async function loadInfo() {
+  try {
+    const res = await fetch('api/info', { cache: 'no-store' });
+    const data = await res.json();
+    document.getElementById('infoHostname').textContent = data.hostname;
+    document.getElementById('infoBoot').textContent = data.boot_id;
+    document.getElementById('infoUptime').textContent = formatUptime(data.uptime_seconds);
+    document.getElementById('infoPython').textContent = data.python_version;
+    document.getElementById('infoPlatform').textContent = data.platform;
+    document.getElementById('infoPort').textContent = data.env.PORT;
+    document.getElementById('hostBadge').textContent = data.hostname;
+  } catch (e) {
+    document.getElementById('hostBadge').textContent = 'unreachable';
+  }
+}
+function formatUptime(sec) {
+  if (sec < 60) return sec.toFixed(0) + 's';
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+loadInfo();
+setInterval(loadInfo, 15000);
+
+/* ---------- Request counter ---------- */
+async function loadStats() {
+  try {
+    const res = await fetch('api/stats', { cache: 'no-store' });
+    const data = await res.json();
+    document.getElementById('reqCounter').textContent = data.requests_served;
+  } catch (e) {}
+}
+loadStats();
+setInterval(loadStats, 5000);
+</script>
 </body>
 </html>
