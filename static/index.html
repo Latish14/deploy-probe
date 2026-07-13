@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deploy Probe // Live Console</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dot" id="statusDot"></span>
+    <span class="brand-text">DEPLOY&nbsp;PROBE</span>
+    <span class="brand-sub">live console</span>
+  </div>
+  <div class="topbar-right">
+    <span class="clock" id="clock">--:--:--</span>
+    <span class="tz" id="tz">UTC</span>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- Signature panel: oscilloscope trace + signal bars -->
+  <section class="panel panel-scope">
+    <div class="panel-head">
+      <h2>Connection Signal</h2>
+      <span class="badge" id="connState">CONNECTING</span>
+    </div>
+
+    <div class="scope-row">
+      <canvas id="scopeCanvas" class="scope" width="900" height="220"></canvas>
+
+      <div class="signal-stack">
+        <div class="signal-bars" id="signalBars" title="Signal strength based on round-trip latency">
+          <span class="bar b1"></span>
+          <span class="bar b2"></span>
+          <span class="bar b3"></span>
+          <span class="bar b4"></span>
+          <span class="bar b5"></span>
+        </div>
+        <div class="metric-big" id="latencyNow">-- <small>ms</small></div>
+        <div class="metric-label">round-trip now</div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <span class="stat-label">avg rtt</span>
+        <span class="stat-value" id="latencyAvg">--</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">jitter</span>
+        <span class="stat-value" id="jitter">--</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">pings sent</span>
+        <span class="stat-value" id="pingCount">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">dropped</span>
+        <span class="stat-value" id="dropCount">0</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page load performance -->
+  <section class="panel panel-load">
+    <div class="panel-head">
+      <h2>This Page's Load</h2>
+      <span class="badge badge-quiet">navigation timing</span>
+    </div>
+    <div class="load-bars" id="loadBars"></div>
+    <p class="hint">Measured with the browser's own Navigation &amp; Resource Timing APIs — the same numbers real visitors experience.</p>
+  </section>
+
+  <!-- Deployment fingerprint -->
+  <section class="panel panel-info">
+    <div class="panel-head">
+      <h2>Deployment Fingerprint</h2>
+      <span class="badge badge-quiet" id="hostBadge">--</span>
+    </div>
+    <dl class="kv" id="infoList">
+      <div class="kv-row"><dt>hostname</dt><dd id="infoHostname">--</dd></div>
+      <div class="kv-row"><dt>boot id</dt><dd id="infoBoot">--</dd></div>
+      <div class="kv-row"><dt>uptime</dt><dd id="infoUptime">--</dd></div>
+      <div class="kv-row"><dt>python</dt><dd id="infoPython">--</dd></div>
+      <div class="kv-row"><dt>platform</dt><dd id="infoPlatform">--</dd></div>
+      <div class="kv-row"><dt>PORT env</dt><dd id="infoPort">--</dd></div>
+    </dl>
+  </section>
+
+  <!-- Visitor / request counter -->
+  <section class="panel panel-counter">
+    <div class="panel-head">
+      <h2>Requests Served</h2>
+      <span class="badge badge-quiet">since container boot</span>
+    </div>
+    <div class="counter" id="reqCounter">0</div>
+    <p class="hint">Increments on every <code>/api/stats</code> call. Reload the page or open it on another device to watch it climb.</p>
+  </section>
+
+  <!-- About / how to use -->
+  <section class="panel panel-about">
+    <div class="panel-head">
+      <h2>What This Is</h2>
+      <span class="badge badge-quiet">read me</span>
+    </div>
+    <p>
+      This is a minimal FastAPI service built to sanity-check a self-hosting pipeline:
+      point your platform at this repo, let it build the <code>Dockerfile</code>, and confirm
+      the link it hands back actually serves a live, working app.
+    </p>
+    <ul class="checklist">
+      <li><span class="ok">✓</span> container builds &amp; boots from <code>docker-compose.yml</code></li>
+      <li><span class="ok">✓</span> static assets served correctly</li>
+      <li><span class="ok">✓</span> API round-trips respond (see signal panel above)</li>
+      <li><span class="ok">✓</span> environment variables reach the container</li>
+      <li><span class="ok">✓</span> service survives a page reload / restart</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>deploy-probe v1.0</span>
+  <span class="dot">·</span>
+  <span id="footClock">--</span>
+  <span class="dot">·</span>
+  <span>built for testing self-hosted deployments</span>
+</footer>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
